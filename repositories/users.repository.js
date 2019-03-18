@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+var bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
     EmailAddress: String,
@@ -7,23 +8,50 @@ const UserSchema = new mongoose.Schema({
     Username: String
 });
 
-const User = mongoose.model('AspNetUsers', UserSchema);
+const User = mongoose.model('Users', UserSchema);
 
 
 
-async function register(user, callback) {
-
-    await User.collection("AspNetUsers").insertOne(user, function (res, err) {
+function register(user, callback) {
+    var hashpassword = bcrypt.hashSync(user.Password, 10);
+    user = new User({
+        EmailAddress: user.EmailAddress,
+        FullName: user.FullName,
+        Password: hashpassword,
+        Username: user.Username
+    });
+    user.save(function (err) {
         if (err) {
-            callback(null, { message: 'Error occured while register' });
+            callback(null, { message: err });
+        } else {
+            callback(user);
         }
-        else{
-            callback(res);
+
+    });
+}
+
+function login(username, password, callback) {
+    User.find({ Username: username }).then(user => {
+        if (user) {
+            let isMatch = this.checkMatchPasswords(password, user[0].Password);
+            if (isMatch) {
+                callback(user);
+            } else {
+                callback(null, { message: 'The username or password is not correct' });
+            }
+        } else {
+            callback(null, { message: 'The username or password is not correct' });
         }
     })
 }
 
+function checkMatchPasswords(password, hashPassword) {
+    return bcrypt.compareSync(password, hashPassword);
+}
+
 module.exports = {
     register: register,
+    login: login,
+    checkMatchPasswords:checkMatchPasswords
 
 }
